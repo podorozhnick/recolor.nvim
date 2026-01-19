@@ -1,7 +1,6 @@
 -- recolor: Interactive colorscheme adjustment plugin
--- Adjust background color hue and brightness with vim-style keymaps
+-- Adjust highlight group colors with persistent tweaks per colorscheme
 
-local colors = require 'recolor.colors'
 local picker = require 'recolor.picker'
 local inspect = require 'recolor.inspect'
 local persistence = require 'recolor.persistence'
@@ -12,68 +11,29 @@ local M = {}
 M.config = {
   brightness_step = 0.05, -- 5% lightness change
   hue_step = 10, -- 10 degree hue rotation
+  saturation_step = 0.05, -- 5% saturation change
   -- Config file path for persisted tweaks
   -- Default: stdpath('config') .. '/recolor.json' (git-trackable)
   -- Alternative: vim.fn.stdpath('data') .. '/recolor.json' (runtime data)
   tweaks_path = nil,
+  -- Keymaps (set to false to disable individual keymaps)
+  keymaps = {
+    categories = '<leader>cc', -- :Recolor
+    inspect = '<leader>ci', -- :RecolorInspect
+    browse = '<leader>ca', -- :RecolorBrowse
+    edited = '<leader>ce', -- :RecolorEdited
+  },
 }
 
---- Get current background color from Normal highlight group
----@return string|nil hex color or nil if not set
-local function get_bg_color()
-  local normal = vim.api.nvim_get_hl(0, { name = 'Normal' })
-  if normal.bg then
-    return string.format('#%06x', normal.bg)
+--- Set a keymap if the lhs is not false/nil
+---@param mode string|string[] Mode(s) for the keymap
+---@param lhs string|false|nil Left-hand side of keymap
+---@param rhs string|function Right-hand side of keymap
+---@param opts table Keymap options
+local function set_keymap_if_enabled(mode, lhs, rhs, opts)
+  if lhs and lhs ~= false then
+    vim.keymap.set(mode, lhs, rhs, opts)
   end
-  return nil
-end
-
---- Set background color on Normal highlight group
----@param hex string Color in hex format
-local function set_bg_color(hex)
-  vim.api.nvim_set_hl(0, 'Normal', { bg = hex })
-  vim.notify('Background: ' .. hex, vim.log.levels.INFO)
-end
-
---- Adjust background brightness
----@param delta number Amount to adjust (positive = lighter, negative = darker)
-function M.adjust_bg_brightness(delta)
-  local current = get_bg_color()
-  if not current then
-    vim.notify('No background color set', vim.log.levels.WARN)
-    return
-  end
-
-  local new_color = colors.adjust_brightness(current, delta)
-  set_bg_color(new_color)
-end
-
---- Adjust background hue
----@param delta number Amount to adjust in degrees (positive = right, negative = left)
-function M.adjust_bg_hue(delta)
-  local current = get_bg_color()
-  if not current then
-    vim.notify('No background color set', vim.log.levels.WARN)
-    return
-  end
-
-  local new_color = colors.adjust_hue(current, delta)
-  set_bg_color(new_color)
-end
-
---- Open color picker to set background color
-function M.pick_bg_color()
-  local current = get_bg_color() or '#ffffff'
-  vim.ui.input({ prompt = 'Background color: ', default = current }, function(value)
-    if value and value:match '^#?%x%x%x%x%x%x$' then
-      if not value:match '^#' then
-        value = '#' .. value
-      end
-      set_bg_color(value)
-    elseif value then
-      vim.notify('Invalid hex color. Use format: #RRGGBB', vim.log.levels.ERROR)
-    end
-  end)
 end
 
 --- Setup the plugin with optional configuration
@@ -86,52 +46,38 @@ function M.setup(opts)
     persistence.set_config_path(M.config.tweaks_path)
   end
 
-  local step_b = M.config.brightness_step
-  local step_h = M.config.hue_step
-
-  -- Brightness keymaps (k = up/lighter, j = down/darker)
-  vim.keymap.set('n', '<leader>ck', function()
-    M.adjust_bg_brightness(step_b)
-  end, { desc = 'Color: Brighten background' })
-
-  vim.keymap.set('n', '<leader>cj', function()
-    M.adjust_bg_brightness(-step_b)
-  end, { desc = 'Color: Darken background' })
-
-  -- Hue keymaps (l = right, h = left)
-  vim.keymap.set('n', '<leader>cl', function()
-    M.adjust_bg_hue(step_h)
-  end, { desc = 'Color: Shift hue right' })
-
-  vim.keymap.set('n', '<leader>ch', function()
-    M.adjust_bg_hue(-step_h)
-  end, { desc = 'Color: Shift hue left' })
-
-  -- Color picker
-  vim.keymap.set('n', '<leader>cp', function()
-    M.pick_bg_color()
-  end, { desc = 'Color: Pick background color' })
-
-  -- Open highlight group picker
-  vim.keymap.set('n', '<leader>cc', function()
+  -- User commands
+  vim.api.nvim_create_user_command('Recolor', function()
     picker.open()
-  end, { desc = 'Color: Open group picker' })
+  end, { desc = 'Open Recolor curated picker' })
 
-  -- Inspect and edit colors at cursor
-  vim.keymap.set('n', '<leader>ci', function()
+  vim.api.nvim_create_user_command('RecolorInspect', function()
     local groups_at_cursor, context = inspect.get_groups_at_cursor()
     picker.open_cursor(groups_at_cursor, context)
-  end, { desc = 'Color: Inspect at cursor' })
+  end, { desc = 'Inspect highlight groups at cursor' })
 
-  -- Browse all highlight groups with search
-  vim.keymap.set('n', '<leader>ca', function()
+  vim.api.nvim_create_user_command('RecolorBrowse', function()
     picker.open_browse()
-  end, { desc = 'Color: Browse all groups' })
+  end, { desc = 'Browse all highlight groups' })
 
-  -- View edited groups for current colorscheme
-  vim.keymap.set('n', '<leader>ce', function()
+  vim.api.nvim_create_user_command('RecolorEdited', function()
     picker.open_edited()
-  end, { desc = 'Color: View edited groups' })
+  end, { desc = 'View edited highlight groups' })
+
+  vim.api.nvim_create_user_command('RecolorUndo', function()
+    local scheme = persistence.get_colorscheme()
+    persistence.clear_scheme()
+    vim.cmd.colorscheme(scheme)
+    vim.notify('Restored all colors for ' .. scheme, vim.log.levels.INFO)
+  end, { desc = 'Undo all tweaks for current colorscheme' })
+
+  -- Keymaps (configurable)
+  local keys = M.config.keymaps
+
+  set_keymap_if_enabled('n', keys.categories, '<Cmd>Recolor<CR>', { desc = 'Recolor: Open curated picker' })
+  set_keymap_if_enabled('n', keys.inspect, '<Cmd>RecolorInspect<CR>', { desc = 'Recolor: Inspect at cursor' })
+  set_keymap_if_enabled('n', keys.browse, '<Cmd>RecolorBrowse<CR>', { desc = 'Recolor: Browse all groups' })
+  set_keymap_if_enabled('n', keys.edited, '<Cmd>RecolorEdited<CR>', { desc = 'Recolor: View edited groups' })
 
   -- Setup ColorScheme autocmd to apply tweaks when colorscheme changes
   vim.api.nvim_create_autocmd('ColorScheme', {
