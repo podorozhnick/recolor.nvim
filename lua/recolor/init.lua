@@ -36,10 +36,32 @@ local function set_keymap_if_enabled(mode, lhs, rhs, opts)
   end
 end
 
+--- Validate configuration options
+---@param opts table Configuration options to validate
+local function validate_config(opts)
+  vim.validate({
+    brightness_step = { opts.brightness_step, 'number', true },
+    hue_step = { opts.hue_step, 'number', true },
+    saturation_step = { opts.saturation_step, 'number', true },
+    tweaks_path = { opts.tweaks_path, 'string', true },
+    keymaps = { opts.keymaps, 'table', true },
+  })
+  if opts.keymaps then
+    vim.validate({
+      ['keymaps.categories'] = { opts.keymaps.categories, { 'string', 'boolean' }, true },
+      ['keymaps.inspect'] = { opts.keymaps.inspect, { 'string', 'boolean' }, true },
+      ['keymaps.browse'] = { opts.keymaps.browse, { 'string', 'boolean' }, true },
+      ['keymaps.edited'] = { opts.keymaps.edited, { 'string', 'boolean' }, true },
+    })
+  end
+end
+
 --- Setup the plugin with optional configuration
 ---@param opts table|nil Optional configuration overrides
 function M.setup(opts)
-  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+  opts = opts or {}
+  validate_config(opts)
+  M.config = vim.tbl_deep_extend('force', M.config, opts)
 
   -- Set custom config path if provided
   if M.config.tweaks_path then

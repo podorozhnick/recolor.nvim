@@ -1,0 +1,232 @@
+*recolor.txt*  Interactive colorscheme adjustment for Neovim
+
+Author: Alex
+License: MIT
+
+==============================================================================
+CONTENTS                                                    *recolor-contents*
+
+1. Introduction ......................................... |recolor-introduction|
+2. Requirements ......................................... |recolor-requirements|
+3. Installation ......................................... |recolor-installation|
+4. Configuration ........................................ |recolor-configuration|
+5. Commands ............................................. |recolor-commands|
+6. Keymaps .............................................. |recolor-keymaps|
+7. Color Concepts ....................................... |recolor-colors|
+8. Persistence .......................................... |recolor-persistence|
+
+==============================================================================
+1. INTRODUCTION                                          *recolor-introduction*
+                                                         *recolor* *recolor.nvim*
+
+recolor.nvim is an interactive colorscheme adjustment plugin for Neovim. It
+allows you to tweak any highlight group's colors (hue, saturation, brightness)
+and persist changes per colorscheme.
+
+Features:
+- Interactive color adjustment with vim-style keymaps
+- Multiple selection modes (curated, cursor inspect, browse all, edited only)
+- Multi-channel support (fg, bg, sp colors)
+- Persistence per colorscheme with automatic reapplication
+- Undo support for individual groups or entire colorscheme
+- Copy/paste hex colors to/from clipboard
+
+==============================================================================
+2. REQUIREMENTS                                          *recolor-requirements*
+
+- Neovim >= 0.9.0
+- A terminal with true color support (recommended)
+
+==============================================================================
+3. INSTALLATION                                          *recolor-installation*
+
+Using lazy.nvim:
+>lua
+    {
+      'username/recolor.nvim',
+      config = function()
+        require('recolor').setup()
+      end,
+    }
+<
+
+Using packer.nvim:
+>lua
+    use {
+      'username/recolor.nvim',
+      config = function()
+        require('recolor').setup()
+      end,
+    }
+<
+
+==============================================================================
+4. CONFIGURATION                                        *recolor-configuration*
+
+Call `require('recolor').setup()` with an optional configuration table:
+>lua
+    require('recolor').setup({
+      brightness_step = 0.05,  -- 5% lightness change per keypress
+      hue_step = 10,           -- 10 degree hue rotation per keypress
+      saturation_step = 0.05,  -- 5% saturation change per keypress
+
+      -- Config file path for persisted tweaks
+      -- Default: stdpath('config') .. '/recolor.json' (git-trackable)
+      tweaks_path = nil,
+
+      -- Keymaps (set to false to disable individual keymaps)
+      keymaps = {
+        categories = '<leader>cc',  -- :Recolor
+        inspect = '<leader>ci',     -- :RecolorInspect
+        browse = '<leader>ca',      -- :RecolorBrowse
+        edited = '<leader>ce',      -- :RecolorEdited
+      },
+    })
+<
+
+To disable a specific keymap, set it to `false`:
+>lua
+    require('recolor').setup({
+      keymaps = {
+        browse = false,  -- Disable <leader>ca
+      },
+    })
+<
+
+==============================================================================
+5. COMMANDS                                                *recolor-commands*
+
+                                                                    *:Recolor*
+:Recolor
+    Open the curated highlight group picker. Shows commonly-tweaked groups
+    organized by category (Base UI, Gutter, Syntax, etc.).
+
+                                                             *:RecolorInspect*
+:RecolorInspect
+    Inspect highlight groups at the current cursor position. Uses
+    `vim.inspect_pos()` to determine which highlights apply at that location.
+
+                                                              *:RecolorBrowse*
+:RecolorBrowse
+    Browse all ~600+ highlight groups with fuzzy search. In this mode, typing
+    directly filters groups (see |recolor-keymaps-browse|).
+
+                                                              *:RecolorEdited*
+:RecolorEdited
+    View only highlight groups that have been edited/tweaked for the current
+    colorscheme. Useful for reviewing and managing your changes.
+
+                                                                *:RecolorUndo*
+:RecolorUndo
+    Undo all tweaks for the current colorscheme. Reloads the colorscheme to
+    restore original colors.
+
+==============================================================================
+6. KEYMAPS                                                    *recolor-keymaps*
+
+GLOBAL KEYMAPS                                          *recolor-keymaps-global*
+
+| Key          | Action                      |
+|--------------|------------------------------|
+| `<leader>cc` | Open curated group picker   |
+| `<leader>ci` | Inspect colors at cursor    |
+| `<leader>ca` | Browse all highlight groups |
+| `<leader>ce` | View edited groups only     |
+
+PICKER WINDOW KEYMAPS                                   *recolor-keymaps-picker*
+
+| Key       | Action                              |
+|-----------|-------------------------------------|
+| `j` / `k` | Navigate down/up                    |
+| `,`       | Shift hue left (-10 degrees)        |
+| `.`       | Shift hue right (+10 degrees)       |
+| `[`       | Darken (-5% lightness)              |
+| `]`       | Brighten (+5% lightness)            |
+| `{`       | Desaturate (-5% saturation)         |
+| `}`       | Saturate (+5% saturation)           |
+| `Tab`     | Cycle channel (fg -> bg -> sp)      |
+| `S-Tab`   | Cycle channel backwards             |
+| `#`       | Input hex color (pick)              |
+| `y`       | Copy hex color to clipboard         |
+| `p`       | Paste hex color from clipboard      |
+| `u`       | Undo tweaks for selected group      |
+| `U`       | Undo ALL tweaks (edited view only)  |
+| `q`/`Esc` | Close picker                        |
+
+BROWSE MODE KEYMAPS                                    *recolor-keymaps-browse*
+
+In browse mode, typing directly filters groups (all letters including 'q'
+trigger search). Commands use Ctrl modifiers:
+
+| Key               | Action                         |
+|-------------------|--------------------------------|
+| (type)            | Filter groups                  |
+| `<C-j>` / `<C-k>` | Navigate down/up               |
+| `<C-n>` / `<Down>`| Navigate (alternatives)        |
+| `<C-y>`           | Copy hex to clipboard          |
+| `<C-p>`           | Paste hex from clipboard       |
+| `<C-u>`           | Undo tweaks for group          |
+| `<C-c>`           | Clear search                   |
+| `#`               | Input hex color                |
+| `Tab` / `S-Tab`   | Cycle channel                  |
+| `,`/`.`/`[`/`]`   | Adjust colors                  |
+| `{`/`}`           | Adjust saturation              |
+| `Esc`             | Close (only Esc, q is search)  |
+
+==============================================================================
+7. COLOR CONCEPTS                                            *recolor-colors*
+
+The plugin uses HSL (Hue, Saturation, Lightness) color space for adjustments:
+
+HUE                                                           *recolor-hue*
+    The color itself on a 360-degree wheel:
+    red -> orange -> yellow -> green -> cyan -> blue -> purple -> red
+    Keys: `,` (left/decrease) and `.` (right/increase)
+
+LIGHTNESS                                               *recolor-lightness*
+    How light or dark the color is (black <-> white)
+    Keys: `[` (darken) and `]` (brighten)
+
+SATURATION                                             *recolor-saturation*
+    How vivid vs muted the color is (gray <-> pure color)
+    Keys: `{` (desaturate) and `}` (saturate)
+
+CHANNELS                                                 *recolor-channels*
+    Each highlight group can have multiple color channels:
+    - `fg` - Foreground (text) color
+    - `bg` - Background color
+    - `sp` - Special color (used for undercurl, underline, etc.)
+
+    Press `Tab` to cycle between channels in the picker.
+
+==============================================================================
+8. PERSISTENCE                                            *recolor-persistence*
+
+Tweaks are stored in JSON format, organized by colorscheme name:
+>json
+    {
+      "catppuccin-mocha": {
+        "Normal": { "bg": "#1e1e2e" },
+        "Comment": { "fg": "#6c7086" }
+      },
+      "tokyonight": {
+        "Normal": { "bg": "#1a1b26" }
+      }
+    }
+<
+
+Default location: `~/.config/nvim/recolor.json` (git-trackable with config)
+
+Tweaks are automatically applied:
+- On Neovim startup
+- When switching colorschemes (`:colorscheme X`)
+
+To use a different path:
+>lua
+    require('recolor').setup({
+      tweaks_path = vim.fn.stdpath('data') .. '/recolor.json'
+    })
+<
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
