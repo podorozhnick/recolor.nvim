@@ -2,7 +2,7 @@
 
 Change any color in your Neovim colorscheme, right where you see it.
 
-![Preview](https://imgur.com/a/Oy8vhUT)
+![Preview](https://i.imgur.com/N2j2SN0.gif)
 
 ## Why This Plugin?
 
@@ -27,7 +27,7 @@ If you've ever wanted to just *point at a color and change it*, this plugin is f
 - **Copy/paste hex colors** — grab colors from other sources or share them
 - **Undo support** — restore individual groups or everything at once
 
-![Features](https://imgur.com/0XSbL8I)
+![Features](https://imgur.com/0XSbL8I.png)
 
 ## Requirements
 
@@ -125,7 +125,7 @@ require('recolor').setup({
 
 ## Picker Controls
 
-![Picker](https://imgur.com/TlLsGpV)
+![Picker](https://imgur.com/TlLsGpV.gif)
 
 ### Standard Mode (curated, inspect, edited views)
 
